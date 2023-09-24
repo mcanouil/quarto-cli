@@ -20,6 +20,7 @@ import {
   kFigEnv,
   kFigPos,
   kFigResponsive,
+  kFormatIdentifier,
   kHeaderIncludes,
   kHtmlMathMethod,
   kIncludeAfter,
@@ -97,6 +98,8 @@ const kQuartoVersion = "quarto-version";
 
 const kQuartoSource = "quarto-source";
 
+const kQuartoCustomFormat = "quarto-custom-format";
+
 export async function filterParamsJson(
   args: string[],
   options: PandocOptions,
@@ -127,6 +130,10 @@ export async function filterParamsJson(
     defaults,
   );
 
+  const customFormatParams = extractCustomFormatParams(
+    options.format.metadata,
+  );
+
   const params: Metadata = {
     ...includes,
     ...initFilterParams(dependenciesFile),
@@ -141,6 +148,7 @@ export async function filterParamsJson(
     ...jatsFilterParams(options),
     ...notebookContextFilterParams(options),
     ...filterParams,
+    ...customFormatParams,
     [kResultsFile]: pandocMetadataPath(resultsFile),
     [kTimingFile]: pandocMetadataPath(timingFile),
     [kQuartoFilters]: filterSpec,
@@ -149,6 +157,7 @@ export async function filterParamsJson(
       crossref: crossrefFilterActive(options),
       jats_subarticle: options.format.metadata[kJatsSubarticle],
     },
+    [kFormatIdentifier]: options.format.identifier,
   };
   return JSON.stringify(params);
 }
@@ -159,6 +168,21 @@ export function removeFilterParams(metadata: Metadata) {
 
 export function quartoMainFilter() {
   return resourcePath("filters/main.lua");
+}
+
+function extractCustomFormatParams(
+  metadata: Metadata,
+) {
+  // pull out custom format spec if provided
+  const customFormatParams = metadata[kQuartoCustomFormat];
+  if (customFormatParams) {
+    delete metadata[kQuartoCustomFormat];
+    return {
+      [kQuartoCustomFormat]: customFormatParams,
+    };
+  } else {
+    return {};
+  }
 }
 
 function extractFilterSpecParams(
@@ -752,7 +776,7 @@ async function resolveFilterExtension(
       typeof (filter) === "string" &&
       !existsSync(filter)
     ) {
-      let extensions = await options.services.extension?.find(
+      const extensions = await options.services.extension?.find(
         filter,
         options.source,
         "filters",
@@ -761,16 +785,27 @@ async function resolveFilterExtension(
       ) || [];
 
       // Filter this list of extensions
-      extensions = filterExtensions(extensions || [], filter, "filter");
+      const filteredExtensions = filterExtensions(
+        extensions || [],
+        filter,
+        "filter",
+      );
       // Return any contributed plugins
-      if (extensions.length > 0) {
+      if (filteredExtensions.length > 0) {
+        // This matches an extension, use the contributed filters
         const filters = extensions[0].contributes.filters;
         if (filters) {
           return filters;
         } else {
           return filter;
         }
+      } else if (extensions.length > 0) {
+        // There was a matching extension with this name, but
+        // it was filtered out, just hide the filter altogether
+        return [];
       } else {
+        // There were no extensions matching this name, just allow it
+        // through
         return filter;
       }
     } else {

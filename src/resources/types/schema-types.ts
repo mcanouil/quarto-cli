@@ -406,7 +406,7 @@ The user’s cookie preferences will automatically control Google Analytics (if 
     | boolean
     | TwitterCardConfig /* Publish twitter card metadata */;
   "other-links"?: OtherLinks;
-  "code-links"?: boolean | OtherLinks;
+  "code-links"?: boolean | CodeLinksSchema;
   comments?: Comments;
   description?: string /* Website description */;
   favicon?: string /* The path to the favicon for this website */;
@@ -465,6 +465,7 @@ The user’s cookie preferences will automatically control Google Analytics (if 
     "keyboard-shortcut"?: MaybeArrayOf<
       string /* One or more keys that will act as a shortcut to launch search (single characters) */
     >;
+    "show-item-context"?: ("tree" | "parent" | "root") | boolean;
     algolia?: {
       "index-name"?: string;
       "application-id"?: string;
@@ -802,8 +803,10 @@ is missing a required field, an error will occur and the render will. */;
     SchemaObject
   > /* Items with matching field values will be excluded from the listing. */;
   feed?: boolean | {
+    "xml-stylesheet"?:
+      string /* The path to an XML stylesheet (XSL file) used to style the RSS feed. */;
     categories?: MaybeArrayOf<
-      string /* A list of categories for which to create separate RSS feeds containing only posts with that category. */
+      string /* A list of categories for which to create separate RSS feeds containing only posts with that category */
     >;
     description?:
       string /* The description of this feed. If not specified, the description for the page the
@@ -987,6 +990,7 @@ For descriptive text (e.g., in an annotated bibliography), use `note` instead */
 Do not use for topical descriptions or categories (e.g. "adventure" for an adventure movie) */;
   guest?: CslPerson;
   host?: CslPerson;
+  id?: string | number /* A value which uniquely identifies this item. */;
   illustrator?: CslPerson;
   interviewer?: CslPerson;
   isbn?:
@@ -1164,8 +1168,20 @@ export type NotebookViewSchema = {
   url?: string; /* The url to use when viewing this notebook. */
 };
 
+export type CodeLinksSchema =
+  | boolean
+  | MaybeArrayOf<
+    ({
+      href?: string /* The href for this code link. */;
+      icon?: string /* The bootstrap icon for this code link. */;
+      rel?: string /* The rel used in the `a` tag for this code link. */;
+      text?: string /* The text for this code link. */;
+      target?: string; /* The target used in the `a` tag for this code link. */
+    } | ("repo" | "binder" | "devcontainer"))
+  >;
+
 export type ManuscriptSchema = {
-  "code-links"?: boolean | MaybeArrayOf<(SchemaObject | string)>;
+  "code-links"?: CodeLinksSchema;
   "manuscript-url"?: string /* The deployed url for this manuscript */;
   "meca-bundle"?:
     | boolean

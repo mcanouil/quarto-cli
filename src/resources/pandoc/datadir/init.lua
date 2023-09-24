@@ -1908,7 +1908,10 @@ _quarto.utils.string_to_inlines = function(s)
 end 
 _quarto.utils.string_to_blocks = function(s)
    return string_to_quarto_ast_blocks(s)
-end 
+end
+_quarto.utils.render = function(n)
+   return _quarto.ast.walk(n, render_extended_nodes())
+end
 
 -- The main exports of the quarto module
 quarto = {
@@ -1925,9 +1928,9 @@ quarto = {
          htmlDependency.scripts == nil and 
          htmlDependency.stylesheets == nil and 
          htmlDependency.resources == nil and
-         htmlDependency.seviceworkers == nil and
+         htmlDependency.serviceworkers == nil and
          htmlDependency.head == nil then
-         error("HTML dependencies must include at least one of meta, links, scripts, stylesheets, seviceworkers, or resources. All appear empty.")
+         error("HTML dependencies must include at least one of meta, links, scripts, stylesheets, serviceworkers, or resources. All appear empty.")
       end
 
       -- validate that the meta is as expected
@@ -2072,6 +2075,7 @@ quarto = {
    as_blocks = utils.as_blocks,
    string_to_blocks = utils.string_to_blocks,
    string_to_inlines = utils.string_to_inlines,
+   render = utils.render,
   },
   json = json,
   base64 = base64,

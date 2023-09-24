@@ -120,6 +120,7 @@ export const kItems = "items";
 export const kType = "type";
 export const kLanguage = "language";
 export const kDescription = "description";
+export const kXmlStyleSheet = "xml-stylesheet";
 
 export interface ListingDescriptor {
   listing: Listing;
@@ -145,6 +146,7 @@ export interface ListingFeedOptions {
   [kFieldCategories]?: string | string[];
   [kImage]?: string;
   [kLanguage]?: string;
+  [kXmlStyleSheet]?: string;
 }
 
 export interface ListingSharedOptions {
@@ -276,14 +278,23 @@ export const renderedContentReader = (
   };
 };
 
+const isWebUrl = (url: string) => {
+  return url.startsWith("http:") || url.startsWith("https:");
+};
+
 export const absoluteUrl = (siteUrl: string, url: string) => {
-  if (url.startsWith("http:") || url.startsWith("https:")) {
+  if (isWebUrl(url)) {
     return url;
   } else {
     const baseUrl = siteUrl.endsWith("/")
       ? siteUrl.substring(0, siteUrl.length - 1)
       : siteUrl;
-    const path = url.startsWith("/") ? url.substring(1, url.length) : url;
+    let path = url.startsWith("/") ? url.substring(1, url.length) : url;
+    if (path.endsWith("/index.html")) {
+      path = join(dirname(path), "/");
+    } else if (path === "index.html") {
+      path = "";
+    }
     return `${baseUrl}/${path.replaceAll("\\", "/")}`;
   }
 };
@@ -328,7 +339,7 @@ export function readRenderedContents(
         const imgEl = imgNode as Element;
         let src = imgEl.getAttribute("src");
         if (src) {
-          if (!src.startsWith("/")) {
+          if (!src.startsWith("/") && !isWebUrl(src)) {
             src = join(fileRelFolder, src);
           }
           imgEl.setAttribute("src", absoluteUrl(siteUrl, src));
@@ -512,6 +523,26 @@ export function readRenderedContents(
         }
       }
     }
+
+    // We couldn't find any paragraphs. Instead just grab the first non-empty element
+    // and use that instead
+    const anyNodes = mainEl?.childNodes;
+    if (anyNodes) {
+      for (const anyNode of anyNodes) {
+        if (anyNode.nodeType === 1) { // element node
+          const el = anyNode as Element;
+          const headings = el.querySelectorAll("h1, h2, h3, h4, h5, h6");
+          headings.forEach((heading) => (heading as Element).remove());
+
+          const truncatedNode = truncateNode(anyNode, options["max-length"]);
+          const contents = cleanMath((truncatedNode as Element).innerHTML);
+          if (contents) {
+            return contents;
+          }
+        }
+      }
+    }
+
     return undefined;
   };
 

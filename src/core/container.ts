@@ -4,9 +4,9 @@
  * Copyright (C) 2020-2022 Posit Software, PBC
  */
 
-import { walkSync } from "../vendor/deno.land/std@0.185.0/fs/walk.ts";
+import { walkSync } from "fs/walk.ts";
 
-import { basename, join, relative } from "path/mod.ts";
+import { basename, join } from "path/mod.ts";
 import { existsSync } from "fs/mod.ts";
 
 // REES Compatible execution files
@@ -48,7 +48,7 @@ export function codeSpacesUrl(repoUrl: string) {
 
 export interface BinderOptions {
   openFile?: string;
-  rstudio?: boolean;
+  editor?: "vscode" | "rstudio" | "jupyterlab";
 }
 
 export function binderUrl(
@@ -63,8 +63,19 @@ export function binderUrl(
   if (binderOptions && binderOptions.openFile) {
     params.push(`labpath=${binderOptions.openFile}`);
   }
-  if (binderOptions && binderOptions.rstudio) {
-    params.push(`urlpath=rstudio`);
+
+  if (binderOptions?.editor) {
+    switch (binderOptions.editor) {
+      case "rstudio":
+        params.push(`urlpath=rstudio`);
+        break;
+      case "vscode":
+        params.push(`urlpath=vscode`);
+        break;
+      case "jupyterlab":
+      default:
+        break;
+    }
   }
 
   // Add any parameters

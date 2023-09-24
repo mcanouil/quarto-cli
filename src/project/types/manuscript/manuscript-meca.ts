@@ -15,7 +15,6 @@ import { kProjectType, ProjectContext } from "../../types.ts";
 import { ProjectOutputFile } from "../types.ts";
 
 import {
-  basename,
   dirname,
   globToRegExp,
   isAbsolute,
@@ -30,6 +29,7 @@ import {
   kEnvironmentFiles,
   kMecaBundle,
   ManuscriptConfig,
+  ManuscriptOutputBundle,
   ResolvedManuscriptConfig,
 } from "./manuscript-types.ts";
 import { Format } from "../../../config/types.ts";
@@ -49,12 +49,12 @@ import {
 const kArticleMetadata = "article-metadata";
 const kArticleSupportingFile = "article-supporting-file";
 const kArticleSource = "article-source";
-const kArticleSourceDirectory = "article-source-directory";
 const kArticleSourceEnvironment = "article-source-environment";
 const kManuscript = "manuscript";
 const kManuscriptSupportingFile = "manuscript-supporting-file";
 
 const kSrcDirName = "source";
+const kSrcDirMecaType = "article-source-directory";
 
 const kMecaSuffix = "-meca.zip";
 
@@ -97,6 +97,7 @@ export const createMecaBundle = async (
   outputDir: string,
   outputFiles: ProjectOutputFile[],
   manuscriptConfig: ResolvedManuscriptConfig,
+  otherOutputBundle?: ManuscriptOutputBundle,
 ) => {
   const workingDir = globalTempContext().createDir();
 
@@ -187,6 +188,15 @@ export const createMecaBundle = async (
     sourceZipFiles.push(relPath);
   };
 
+  // Create a meca item for the source directory itself
+  const srcDirMetaItem = {
+    type: kSrcDirMecaType,
+    instance: {
+      mediaType: "application/x-directory",
+      href: kSrcDirName,
+    },
+  };
+
   for (const path of Object.keys(srcFiles)) {
     const type = srcFiles[path];
     copySrcFile(path, type);
@@ -263,6 +273,39 @@ export const createMecaBundle = async (
       });
     }
 
+    // Deal with 'other manuscript'
+    if (otherOutputBundle) {
+      if (otherOutputBundle.manuscript) {
+        const relativePath = toWorkingDir(
+          otherOutputBundle.manuscript,
+          relative(outputDir, otherOutputBundle.manuscript),
+          false,
+        );
+        articleRenderingPaths.push(relativePath);
+      }
+
+      // Deal with 'other supporting'
+      for (const otherSupporting of otherOutputBundle.supporting) {
+        const relativePath = toWorkingDir(
+          otherSupporting,
+          relative(outputDir, otherSupporting),
+          false,
+        );
+        const isDir = Deno.statSync(otherSupporting).isDirectory;
+
+        const otherItems = mecaItemsForPath(
+          workingDir,
+          relativePath,
+          "manuscript",
+          isDir,
+        );
+        manuscriptResources.push(...otherItems);
+
+        // Note to include in zip
+        manuscriptZipFiles.push(relativePath);
+      }
+    }
+
     const msg = (count: number, nameSing: string, namePlur: string) => {
       if (count === 1) {
         info(`  ${count} ${nameSing}`);
@@ -323,6 +366,7 @@ export const createMecaBundle = async (
         ...renderedItems,
         ...manuscriptResources,
         ...sourceFiles,
+        srcDirMetaItem,
       ],
     };
 

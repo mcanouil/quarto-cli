@@ -13,7 +13,11 @@ import { Document, parseHtml } from "../../core/deno-dom.ts";
 import { mergeConfigs } from "../../core/config.ts";
 import { resourcePath } from "../../core/resources.ts";
 import { inputFilesDir } from "../../core/render.ts";
-import { normalizePath, pathWithForwardSlashes } from "../../core/path.ts";
+import {
+  normalizePath,
+  pathWithForwardSlashes,
+  safeExistsSync,
+} from "../../core/path.ts";
 
 import { FormatPandoc } from "../../config/types.ts";
 import {
@@ -336,14 +340,31 @@ export async function renderPandoc(
         supporting.push(...postProcessSupporting);
       }
 
+      // Deal with self contained by passing them to be cleaned up
+      // but if this is a project, instead make sure that we're not
+      // including the lib dir
+      let cleanupSelfContained: string[] | undefined = undefined;
+      if (selfContained! && supporting) {
+        cleanupSelfContained = [...supporting];
+        if (context.project!) {
+          const libDir = context.project?.config?.project["lib-dir"];
+          if (libDir) {
+            const absLibDir = join(context.project.dir, libDir);
+            cleanupSelfContained = cleanupSelfContained.filter((file) =>
+              !file.startsWith(absLibDir)
+            );
+          }
+        }
+      }
+
       if (cleanup !== false) {
         withTiming("render-cleanup", () =>
           renderCleanup(
             context.target.input,
             finalOutput!,
             format,
-            selfContained! ? supporting : undefined,
-            executionEngineKeepMd(context.target.input),
+            cleanupSelfContained,
+            executionEngineKeepMd(context),
           ));
       }
 
@@ -452,7 +473,7 @@ export function renderResultFinalOutput(
 
   // if the final output doesn't exist then we must have been targetin stdout,
   // so return undefined
-  if (!existsSync(finalOutput)) {
+  if (!safeExistsSync(finalOutput)) {
     return undefined;
   }
 
