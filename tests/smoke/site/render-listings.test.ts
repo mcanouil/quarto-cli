@@ -8,7 +8,11 @@ import { dirname, join } from "../../../src/deno_ral/path.ts";
 import { testQuartoCmd, Verify } from "../../test.ts";
 
 import { docs } from "../../utils.ts";
-import { ensureHtmlElements, fileExists } from "../../verify.ts";
+import {
+  ensureFileRegexMatches,
+  ensureHtmlElements,
+  fileExists,
+} from "../../verify.ts";
 
 const input = docs("listings/index.qmd");
 const outputDir = join(docs("listings"), "_site");
@@ -35,6 +39,28 @@ verify.push(ensureHtmlElements(htmlOutput, [
   // 4. Testing that `.preview-image` is correctly taken
   'div#listing-other-reports .quarto-post div.thumbnail img[src$="2\.png"]',
 ]));
+
+// 5. Testing pagination options (pagination subdirectory is part of same website)
+const paginationHtmlOutput = join(outputDir, "pagination", "index.html");
+verify.push(fileExists(paginationHtmlOutput));
+verify.push(
+  ensureHtmlElements(paginationHtmlOutput, [
+    "#listing-default-pagination-pagination",
+    "#listing-custom-pagination-pagination",
+    "#listing-zero-inner-window-pagination",
+  ]),
+);
+verify.push(
+  ensureFileRegexMatches(paginationHtmlOutput, [
+    // Default pagination uses innerWindow: 2
+    /listing-default-pagination.*innerWindow: 2/,
+    // Custom pagination uses specified values
+    /listing-custom-pagination.*innerWindow: 1/,
+    /listing-custom-pagination.*outerWindow: 1/,
+    // Zero inner-window should be output (regression test for falsy bug fix)
+    /listing-zero-inner-window.*innerWindow: 0/,
+  ]),
+);
 
 testQuartoCmd(
   "render",
